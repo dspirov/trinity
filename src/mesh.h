@@ -37,7 +37,7 @@ struct KDTreeNode {
 		std::vector<int>* triangles; // 1 pointer to list of triangle indices
 		KDTreeNode* children;        // 1 pointer to TWO children (children[0] and children[1])
 	};
-	
+
 	KDTreeNode() {}
 	// initialize this node as a leaf node:
 	void initLeaf(const std::vector<int>& triangleList)
@@ -68,33 +68,35 @@ class Mesh: public Geometry {
 	std::vector<Vector> normals; //!< An array with all normals in the mesh
 	std::vector<Vector> uvs; //!< An array with all texture coordinates in the mesh
 	std::vector<Triangle> triangles; //!< An array that holds all triangles
-	
+
 	// intersect a ray with a single triangle. Return true if an intersection exists, and it's
 	// closer to the minimum distance, stored in data.dist
 	bool intersectTriangle(const Ray& ray, IntersectionData& data, Triangle& T);
 	void initMesh(void);
-	
+
 	bool faceted; //!< whether the normals interpolation is disabled or not
 	bool backfaceCulling; //!< whether the backfaceCulling optimization is enabled (default: yes)
 	bool hasNormals; //!< whether the .obj file contained normals. If not, no normal smoothing can be used.
 	bool autoSmooth; //!< create smooth normals if the OBJ file lacks them
 	BBox boundingBox; //!< a bounding box, which optimizes our whole
-	
+
 	bool loadFromOBJ(const char* filename); //!< load a mesh from an .OBJ file.
 	bool useKDTree; //!< whether to use a KD-tree to speed-up intersections
+	bool useSAH;
 	KDTreeNode* kdroot; //!< a pointer to the root of the KDTree. Can be NULL if no tree is built.
-	
+
 	void build(KDTreeNode& node, const BBox& bbox, const std::vector<int>& triangles, int depth);
 	bool intersectKD(KDTreeNode& node, const BBox& bbox, const Ray& ray, IntersectionData& data);
+	double sah(const BBox& bbox, Axis axis, double splitPos, const std::vector<int>& tList);
 public:
 	Mesh() { faceted = false; backfaceCulling = true; useKDTree = true; autoSmooth = true; }
 	~Mesh();
 	const char* getName();
 	bool intersect(Ray ray, IntersectionData& info);
 	bool isInside(const Vector& p) const { return false; } //FIXME!!
-	
+
 	void setFaceted(bool faceted) { this->faceted = faceted; }
-	
+
 	void fillProperties(ParsedBlock& pb)
 	{
 		char fileName[256];
@@ -105,6 +107,7 @@ public:
 		pb.getBoolProp("faceted", &faceted);
 		pb.getBoolProp("backfaceCulling", &backfaceCulling);
 		pb.getBoolProp("useKDTree", &useKDTree);
+		pb.getBoolProp("useSAH", &useSAH);
 		pb.getBoolProp("autoSmooth", &autoSmooth);
 		initMesh();
 	}

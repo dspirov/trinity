@@ -34,7 +34,7 @@ struct Triangle {
 	int t[3]; //!< holds indices to the three texture coordinates of the triangle (indexes in the `uvs' array)
 	Vector gnormal; //!< The geometric normal of the mesh (AB ^ AC, normalized)
 	Vector dNdx, dNdy;
-	
+
 	Triangle() {}
 	Triangle(std::string a, std::string b, std::string c);
 };
@@ -43,7 +43,7 @@ enum Axis {
 	AXIS_X,
 	AXIS_Y,
 	AXIS_Z,
-	
+
 	AXIS_NONE,
 };
 
@@ -202,6 +202,14 @@ struct BBox {
 		right = *this;
 		left.vmax[axis] = where;
 		right.vmin[axis] = where;
+	}
+
+	double area() const
+	{
+	    double x = vmax[0] - vmin[0],
+            y = vmax[1] - vmin[1],
+            z = vmax[2] - vmin[2];
+	    return 2 * (x * y + x * z + y * z);
 	}
 };
 
