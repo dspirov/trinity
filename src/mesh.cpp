@@ -399,9 +399,7 @@ double Mesh::sah(const BBox& bbox, Axis axis, double splitPos, const vector<int>
 {
     BBox bbLeft, bbRight;
     bbox.split(axis, splitPos, bbLeft, bbRight);
-    double areaL = bbLeft.area(), areaR = bbRight.area();
-    areaL = areaL / (areaL + areaR);
-    areaR = 1 - areaL;
+    double areaL = bbLeft.area() / bbox.area(), areaR = bbRight.area() / bbox.area();
     double tLeft = 0, tRight = 0;
     for(int i = 0; i < (int) tList.size(); i++)
     {
@@ -409,12 +407,15 @@ double Mesh::sah(const BBox& bbox, Axis axis, double splitPos, const vector<int>
         const Vector& A = vertices[T.v[0]];
         const Vector& B = vertices[T.v[1]];
         const Vector& C = vertices[T.v[2]];
-        if (bbLeft.intersectTriangle(A, B, C))
-            tLeft++;
-        if (bbRight.intersectTriangle(A, B, C))
+        if (!bbLeft.intersectTriangle(A, B, C))// if it's not in bbLeft, it's in bbRight
             tRight++;
+        else if (!bbRight.intersectTriangle(A, B, C))
+            tLeft++;
+        else { tLeft++;tRight++; }
     }
 
+    tLeft = tLeft / tList.size();
+    tRight = tRight / tList.size();
     return COST_SPLIT + COST_INTERSECT * (tLeft * areaL + tRight * areaR);
 }
 
@@ -430,10 +431,12 @@ void Mesh::build(KDTreeNode& node, const BBox& bbox, const vector<int>& tList, i
 		double splitPos = (axisL + axisR) * 0.5;
 		if(useSAH)
         {
-            double precision = (axisR - axisL) * 0.001;
+            //double precision = (axisR - axisL) * 0.05;
             double left = axisL, right = axisR;
-            while(abs(right - left) > precision)
+            int depth = 0;
+            while(depth < 10)
             {
+                depth++;
                 double leftThird = (2 * left + right) / 3;
                 double rightThird = (left + 2 * right) / 3;
                 if(sah(bbox, axis, leftThird, tList) > sah(bbox, axis, rightThird, tList))
@@ -442,11 +445,11 @@ void Mesh::build(KDTreeNode& node, const BBox& bbox, const vector<int>& tList, i
                     right = rightThird;
             }
             splitPos = (right + left) * 0.5;
-            /*if(sah(bbox, axis, splitPos, tList) > COST_INTERSECT * tList.size())
+            if(sah(bbox, axis, splitPos, tList) > COST_INTERSECT * tList.size())
             {
                 node.initLeaf(tList);
                 return;
-            }*/
+            }
             /*double min_sah = sah(bbox, axis, splitPos, tList);
             for(double p = axisL ; p <= axisR ; p+= (axisR - axisL) / 10)
             {
