@@ -27,6 +27,8 @@ extern bool testVisibility(const Vector& from, const Vector& to);
 extern Color raytrace(Ray ray);
 
 
+int Shader::refinementPasses = 0;
+
 
 Shader::Shader(const Color& color)
 {
@@ -60,28 +62,37 @@ Color Lambert::shade(Ray ray, const IntersectionData& data)
 	// from the texture, if it's set up.
 	Color diffuseColor = this->color;
 	if (texture) diffuseColor = texture->getTexColor(ray, data.u, data.v, N);
-	
+
 	Color lightContrib = scene.settings.ambientLight;
-	
+
 	for (int i = 0; i < (int) scene.lights.size(); i++) {
 		int numSamples = scene.lights[i]->getNumSamples();
 		Color avgColor(0, 0, 0);
-		for (int j = 0; j < numSamples; j++) {
-			Vector lightPos;
-			Color lightColor;
-			scene.lights[i]->getNthSample(j, data.p, lightPos, lightColor);
-			if (lightColor.intensity() != 0 && testVisibility(data.p + N * 1e-6, lightPos)) {
-				Vector lightDir = lightPos - data.p;
-				lightDir.normalize();
-				
-				// get the Lambertian cosine of the angle between the geometry's normal and
-				// the direction to the light. This will scale the lighting:
-				double cosTheta = dot(lightDir, N);
-				if (cosTheta > 0)
-					avgColor += lightColor / (data.p - lightPos).lengthSqr() * cosTheta;
-			}
-		}
-		lightContrib += avgColor / numSamples;
+		int visibleSamples = 0;
+		int numPasses = 1;
+		for(int pass = 0 ; pass < numPasses ; pass++)
+        {
+            for (int j = 0; j < numSamples; j++) {
+                Vector lightPos;
+                Color lightColor;
+                scene.lights[i]->getNthSample(j, data.p, lightPos, lightColor);
+                if (lightColor.intensity() != 0 && testVisibility(data.p + N * 1e-6, lightPos)) {
+                    visibleSamples++;
+                    Vector lightDir = lightPos - data.p;
+                    lightDir.normalize();
+
+                    // get the Lambertian cosine of the angle between the geometry's normal and
+                    // the direction to the light. This will scale the lighting:
+                    double cosTheta = dot(lightDir, N);
+                    if (cosTheta > 0)
+                        avgColor += lightColor / (data.p - lightPos).lengthSqr() * cosTheta;
+                }
+            }
+
+            if(pass == 0 && visibleSamples != 0 && visibleSamples != numSamples) // refinement
+                numPasses += Shader::refinementPasses;
+        }
+		lightContrib += avgColor / (numSamples * numPasses);
 	}
 	return diffuseColor * lightContrib;
 }
@@ -93,41 +104,51 @@ Color Phong::shade(Ray ray, const IntersectionData& data)
 
 	Color diffuseColor = this->color;
 	if (texture) diffuseColor = texture->getTexColor(ray, data.u, data.v, N);
-	
+
 	Color lightContrib = scene.settings.ambientLight;
 	Color specular(0, 0, 0);
-	
+
 	for (int i = 0; i < (int) scene.lights.size(); i++) {
 		int numSamples = scene.lights[i]->getNumSamples();
 		Color avgColor(0, 0, 0);
 		Color avgSpecular(0, 0, 0);
-		for (int j = 0; j < numSamples; j++) {
-			Vector lightPos;
-			Color lightColor;
-			scene.lights[i]->getNthSample(j, data.p, lightPos, lightColor);
-			if (lightColor.intensity() != 0 && testVisibility(data.p + N * 1e-6, lightPos)) {
-				Vector lightDir = lightPos - data.p;
-				lightDir.normalize();
-				
-				// get the Lambertian cosine of the angle between the geometry's normal and
-				// the direction to the light. This will scale the lighting:
-				double cosTheta = dot(lightDir, N);
+		int visibleSamples = 0;
+		int numPasses = 1;
+		for(int pass = 0 ; pass < numPasses ; pass++)
+        {
+            for (int j = 0; j < numSamples; j++) {
+                Vector lightPos;
+                Color lightColor;
+                scene.lights[i]->getNthSample(j, data.p, lightPos, lightColor);
+                if (lightColor.intensity() != 0 && testVisibility(data.p + N * 1e-6, lightPos)) {
+                    visibleSamples++;
+                    Vector lightDir = lightPos - data.p;
+                    lightDir.normalize();
 
-				// baseLight is the light that "arrives" to the intersection point
-				Color baseLight = lightColor / (data.p - lightPos).lengthSqr();
-				if (cosTheta > 0)
-					avgColor += baseLight * cosTheta; // lambertian contribution
-				
-				// R = vector after the ray from the light towards the intersection point
-				// is reflected at the intersection:
-				Vector R = reflect(-lightDir, N);
-				
-				double cosGamma = dot(R, -ray.dir);
-				if (cosGamma > 0)
-					avgSpecular += baseLight * pow(cosGamma, exponent) * strength; // specular contribution
-			
-			}
-		}
+                    // get the Lambertian cosine of the angle between the geometry's normal and
+                    // the direction to the light. This will scale the lighting:
+                    double cosTheta = dot(lightDir, N);
+
+                    // baseLight is the light that "arrives" to the intersection point
+                    Color baseLight = lightColor / (data.p - lightPos).lengthSqr();
+                    if (cosTheta > 0)
+                        avgColor += baseLight * cosTheta; // lambertian contribution
+
+                    // R = vector after the ray from the light towards the intersection point
+                    // is reflected at the intersection:
+                    Vector R = reflect(-lightDir, N);
+
+                    double cosGamma = dot(R, -ray.dir);
+                    if (cosGamma > 0)
+                        avgSpecular += baseLight * pow(cosGamma, exponent) * strength; // specular contribution
+
+                }
+            }
+
+            if(pass == 0 && visibleSamples != 0 && visibleSamples != numSamples) // refinement
+                numPasses += Shader::refinementPasses;
+        }
+		numSamples *= numPasses;
 		lightContrib += avgColor / numSamples;
 		specular += avgSpecular / numSamples;
 	}
@@ -156,11 +177,11 @@ Color BitmapTexture::getTexColor(const Ray& ray, double u, double v, Vector& nor
 Color Refl::shade(Ray ray, const IntersectionData& data)
 {
 	Vector N = faceforward(ray.dir, data.normal);
-	
+
 	if (glossiness == 1) {
 	 	// The material is't glossy: simple reflection, launch a single ray:
 		Vector reflected = reflect(ray.dir, N);
-		
+
 		Ray newRay = ray;
 		newRay.start = data.p + N * 1e-6;
 		newRay.dir = reflected;
@@ -184,15 +205,15 @@ Color Refl::shade(Ray ray, const IntersectionData& data)
 				rnd.unitDiscSample(x, y);
 				x *= scaling;
 				y *= scaling;
-				
+
 				// modify the normal according to the random offset:
 				Vector newNormal = N + a * x + b * y;
 				newNormal.normalize();
-				
+
 				// reflect the incoming ray around the new normal:
 				reflected = reflect(ray.dir, newNormal);
 			} while (dot(reflected, N) < 0); // check if the reflection is valid.
-			
+
 			// sample the resulting valid ray, and add to the sum
 			Ray newRay = ray;
 			newRay.start = data.p + N * 1e-6;
@@ -208,19 +229,19 @@ Color Refl::shade(Ray ray, const IntersectionData& data)
 Color Refr::shade(Ray ray, const IntersectionData& data)
 {
 	Vector N = faceforward(ray.dir, data.normal);
-	
+
 	// refract() expects the ratio of IOR_WE_ARE_EXITING : IOR_WE_ARE_ENTERING.
 	// the ior parameter has the ratio of this material to vacuum, so if we're
 	// entering the geometry, be sure to take the reciprocal
 	float eta = ior;
 	if (dot(ray.dir, data.normal) < 0)
 		eta = 1.0f / eta;
-	
+
 	Vector refracted = refract(ray.dir, N, eta);
-	
+
 	// total inner refraction:
 	if (refracted.lengthSqr() == 0) return Color(0, 0, 0);
-	
+
 	Ray newRay = ray;
 	newRay.start = data.p + ray.dir * 1e-6;
 	newRay.dir = refracted;
@@ -243,8 +264,8 @@ Color Layered::shade(Ray ray, const IntersectionData& data)
 	Vector N = data.normal;
 	for (int i = 0; i < numLayers; i++) {
 		Layer& l = layers[i];
-		Color opacity = l.texture ? 
-			l.texture->getTexColor(ray, data.u, data.v, N) : l.blend; 
+		Color opacity = l.texture ?
+			l.texture->getTexColor(ray, data.u, data.v, N) : l.blend;
 		Color transparency = Color(1, 1, 1) - opacity;
 		result = transparency * result + opacity * l.shader->shade(ray, data);
 	}
@@ -319,7 +340,7 @@ Color Fresnel::getTexColor(const Ray& ray, double u, double v, Vector& normal)
 void BumpTexture::modifyNormal(IntersectionData& data)
 {
 	Color bumpVal = getTexValue(bmp, data.u, data.v) * strength;
-	
+
 	data.normal += data.dNdx * bumpVal[0] + data.dNdy * bumpVal[1];
 	data.normal.normalize();
 }
@@ -332,7 +353,7 @@ void Bumps::modifyNormal(IntersectionData& data)
 		float intensityX[3] = { 0.1, 0.08, 0.05 }, intensityZ[3] = { 0.1, 0.08, 0.05 };
 		double dx = 0, dy = 0;
 		for (int i = 0; i < 3; i++) {
-			dx += sin(fm * freqX[i] * data.u) * intensityX[i] * strength; 
+			dx += sin(fm * freqX[i] * data.u) * intensityX[i] * strength;
 			dy += sin(fm * freqZ[i] * data.v) * intensityZ[i] * strength;
 		}
 		data.normal += dx * data.dNdx + dy * data.dNdy;

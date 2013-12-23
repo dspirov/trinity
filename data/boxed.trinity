@@ -4,6 +4,7 @@ GlobalSettings {
 	frameHeight         480
 	ambientLight        (0.075, 0.075, 0.075)
 	maxTraceDepth 8
+	refinementPasses 7
 }
 
 Camera camera {

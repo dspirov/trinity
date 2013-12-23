@@ -46,6 +46,8 @@
 using std::vector;
 using std::string;
 
+extern int refinementPasses;
+
 SceneElement::SceneElement()
 {
 	name[0] = 0;
@@ -63,7 +65,7 @@ class ParsedBlockImpl: public ParsedBlock {
 		char propName[128];
 		char propValue[256];
 		bool recognized;
-		
+
 		LineInfo() {}
 		LineInfo(int line, const char* name, const char* value): line(line)
 		{
@@ -366,7 +368,7 @@ public:
 	Texture* findTextureByName(const char* name);
 	Geometry* findGeometryByName(const char* name);
 	Node* findNodeByName(const char* name);
-	
+
 	bool parse(const char* filename, Scene* s);
 };
 
@@ -836,6 +838,7 @@ void GlobalSettings::fillProperties(ParsedBlock& pb)
 	pb.getBoolProp("wantPrepass", &wantPrepass);
 	pb.getBoolProp("wantAA", &wantAA);
 	pb.getDoubleProp("aaThresh", &aaThresh);
+	pb.getIntProp("refinementPasses", &Shader::refinementPasses);
 }
 
 SceneElement* DefaultSceneParser::newSceneElement(const char* className)

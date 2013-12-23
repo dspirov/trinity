@@ -34,7 +34,7 @@ public:
 	virtual ~Shader() {}
 
 	virtual Color shade(Ray ray, const IntersectionData& data) = 0;
-	
+
 	// from SceneElement:
 	ElementType getElementType() const { return ELEM_SHADER; }
 
@@ -43,16 +43,18 @@ public:
 		pb.getColorProp("color", &color);
 	}
 
+	static int refinementPasses;
+
 };
 
 /// An abstract class, representing a (2D) texture
 class Texture: public SceneElement {
 public:
 	virtual ~Texture() {}
-	
+
 	virtual Color getTexColor(const Ray& ray, double u, double v, Vector& normal) = 0;
 	virtual void modifyNormal(IntersectionData& data) {}
-	
+
 	// from SceneElement:
 	ElementType getElementType() const { return ELEM_TEXTURE; }
 };
@@ -87,7 +89,7 @@ public:
 	///     otherwise, gamma decompression with the given power is performed
 	BitmapTexture() { scaling = 1; assumedGamma = 2.2f; } // default constructor, in which case the loading is done later.
 	Color getTexColor(const Ray& ray, double u, double v, Vector& normal);
-	
+
 	void fillProperties(ParsedBlock& pb)
 	{
 		pb.getDoubleProp("scaling", &scaling);
@@ -141,7 +143,7 @@ class Refl: public Shader {
 	int numSamples;
 	static void getRandomDiscPoint(double& x, double& y);
 public:
-	Refl(const Color& filter = Color(1, 1, 1), double glossiness = 1.0, 
+	Refl(const Color& filter = Color(1, 1, 1), double glossiness = 1.0,
 		int numSamples = 20):
 		Shader(filter), glossiness(glossiness), numSamples(numSamples) {}
 	Color shade(Ray ray, const IntersectionData& data);
@@ -171,14 +173,14 @@ class Layered: public Shader {
 		Color blend;
 		Texture* texture;
 	};
-	
+
 	static const int MAX_LAYERS = 32;
 	Layer layers[MAX_LAYERS];
 	int numLayers;
 public:
 	Layered(): Shader(Color(0, 0, 0)) { numLayers = 0; }
 	void addLayer(Shader* shader, const Color& blend, Texture* texture = NULL);
-	
+
 	Color shade(Ray ray, const IntersectionData& data);
 	void fillProperties(ParsedBlock& pb);
 };
@@ -199,7 +201,7 @@ class BumpTexture: public Texture {
 	float strength;
 public:
 	BumpTexture() { strength = 1; }
-	
+
 	void modifyNormal(IntersectionData& data);
 	Color getTexColor(const Ray& ray, double u, double v, Vector& normal)
 	{
@@ -218,14 +220,14 @@ class Bumps: public Texture {
 	float strength;
 public:
 	Bumps() { strength = 0; }
-	
+
 	void modifyNormal(IntersectionData& data);
 	Color getTexColor(const Ray& ray, double u, double v, Vector& normal);
 	void fillProperties(ParsedBlock& pb)
 	{
 		pb.getFloatProp("strength", &strength);
 	}
-	
+
 };
 
 #endif // __SHADING_H__
