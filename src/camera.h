@@ -47,14 +47,15 @@ public:
 	int numSamples;
 	double discMultiplier;
 	double stereoSeparation;
-	
+	int width, height;
+
 	Camera() { dof = false; fNumber = 1.0; focalPlaneDist = 1; numSamples = 25;
 		stereoSeparation = 0; }
-	
+
 	// from SceneElement:
 	void beginFrame(); //!< must be called before each frame. Computes the corner variables, needed for getScreenRay()
 	ElementType getElementType() const { return ELEM_CAMERA; }
-	
+
 	void fillProperties(ParsedBlock& pb)
 	{
 		if (!pb.getVectorProp("pos", &pos))
@@ -71,12 +72,12 @@ public:
 		pb.getDoubleProp("stereoSeparation", &stereoSeparation);
 		discMultiplier = 10.0 / fNumber;
 	}
-	
+
 	/// generates a screen ray through a pixel (x, y - screen coordinates, not necessarily integer).
 	/// if the camera parameter is present - offset the rays' start to the left or to the right,
 	/// for use in stereoscopic rendering
 	Ray getScreenRay(double x, double y, int camera = CAMERA_CENTER);
-	
+
 	void move(double dx, double dz);
 	void rotate(double dx, double dz);
 };
