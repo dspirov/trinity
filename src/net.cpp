@@ -5,6 +5,25 @@ using namespace std;
 
 #define RT_PORT 9000
 
+inline void writeToBuffer(const Color &col, char* buff)
+{
+    for(int i = 0 ; i < 3 ; i++)
+    {
+        // Encoding floats is hard. This is an ugly solution, but it works.
+        Sint32 c = col.components[i] * 10000;
+        SDLNet_Write32(c, buff + i*4);
+    }
+}
+
+inline void readFromBuffer(const char* buff, Color& col)
+{
+    for(int i = 0 ; i < 3 ; i++)
+    {
+        Sint32 c = SDLNet_Read32(&buff[i * 4]);
+        col.components[i] = (float)c / 10000;
+    }
+}
+
 ClientSocket::ClientSocket(const char* host, const char* sceneFile)
 {
     sock = NULL; remoteThreads = 0;
@@ -78,12 +97,12 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
     if(bucket.w == 0)
         return false;
     // receive the pixels
-    Color *result = new Color[bucket.w * bucket.h];
+    char *result = new char[bucket.w * bucket.h * 12];
     char *pRead = (char*)result;
     int status, totalRead = 0;
-    while(totalRead < (int)(bucket.w * bucket.h * sizeof(Color)))
+    while(totalRead < (int)(bucket.w * bucket.h * 12))
     {
-        status = SDLNet_TCP_Recv(sock, pRead, bucket.w * bucket.h * sizeof(Color) - totalRead);
+        status = SDLNet_TCP_Recv(sock, pRead, bucket.w * bucket.h * 12 - totalRead);
         if(status <= 0)
         {
             cout<<"Failed to receive bucket: "<<status<<SDLNet_GetError()<<endl;
@@ -96,7 +115,7 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
     {
         for(int x = 0 ; x < bucket.w ; x++)
         {
-            vfb[bucket.y0 + y][bucket.x0 + x] = result[bucket.w * y + x];
+            readFromBuffer(&result[(bucket.w * y + x)*12], vfb[bucket.y0 + y][bucket.x0 + x]);
         }
     }
 
@@ -151,14 +170,14 @@ bool ServerSocket::returnBucket(Rect bucket, const Color vfb[VFB_MAX_SIZE][VFB_M
 {
     if(!sendRect(bucket, sock))
         return false;
-    Color *buffer = new Color[bucket.w * bucket.h];
-    Color *p = buffer;
+    char *buffer = new char[bucket.w * bucket.h * 12];
+    char *p = buffer;
     for(int y = bucket.y0 ; y < bucket.y1 ; y++)
     {
         for(int x = bucket.x0 ; x < bucket.x1 ; x++)
         {
-            *p = vfb[y][x];
-            p++;
+            writeToBuffer(vfb[y][x], p);
+            p+= 12;
         }
     }
     int status = SDLNet_TCP_Send(sock, buffer, bucket.w * bucket.h * sizeof(Color));
