@@ -100,6 +100,7 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
         }
     }
 
+    displayVFBRect(bucket, vfb);
     delete[] result;
     return true;
 }

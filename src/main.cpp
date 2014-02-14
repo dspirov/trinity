@@ -396,7 +396,6 @@ public:
             if(!cl.receiveBucket(vfb))
                 break;
             else printf("Received bucket\n");
-            displayVFBRect(buckets[i], vfb);
             if((i = counter++) < (int) buckets.size())
             {
                 printf("requesting bucket at %d,%d \n", buckets[i].x0, buckets[i].y0);
@@ -675,6 +674,7 @@ int runSlave()
     {
         if(srv.acceptConnection())
         {
+            scene.reset();
             if (!scene.parseScene(srv.getSceneFile())) {
                 printf("Could not parse the scene!\n");
                 return -1;

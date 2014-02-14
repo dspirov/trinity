@@ -750,7 +750,7 @@ Scene::Scene()
 	camera = NULL;
 }
 
-Scene::~Scene()
+void Scene::reset()
 {
 	for (int i = 0; i < (int) geometries.size(); i++) {
 		if (geometries[i]) delete geometries[i];
@@ -780,6 +780,11 @@ Scene::~Scene()
 	environment = NULL;
 	if (camera) delete camera;
 	camera = NULL;
+}
+
+Scene::~Scene()
+{
+    reset();
 }
 
 
