@@ -103,7 +103,7 @@ public:
 	inline int operator ++ (int) { return atomic_add(&data, 1); }
 	inline int operator -- () { return -1 + atomic_add(&data, -1); }
 	inline int operator -- (int) { return atomic_add(&data, -1); }
-	
+
 	/// adds the given value to the variable and returns the value before the addition
 	inline int add(int value) { return atomic_add(&data, value); }
 };
@@ -111,11 +111,11 @@ public:
 /**
  * @class Mutex
  * @brief MUTual EXclusive device
- * 
+ *
  * Mutexes are used to protect shared data from race conditions. The only two
  * operations supported are:
  *
- * enter() - acquires a lock. If some other threads currently owns the lock, 
+ * enter() - acquires a lock. If some other threads currently owns the lock,
  *           the calling thread is suspended, until the lock is released;
  * leave() - releases a previously acquired lock.
  *
@@ -183,7 +183,7 @@ public:
  * ....
  * multithreaded_memset(a, 0, sizeof(a)); // use all threads for the memset
  * barrier.checkout();                    // synchronize here; all threads
- *                                        // must reach this point before 
+ *                                        // must reach this point before
  *                                        // continuing.
  * for (int i = thread_idx; i &lt; n; i += thread_count) a[i] = 2*i;
  * // ^ continue the computation
@@ -215,7 +215,7 @@ typedef SDL_Thread* ThreadID;
 class ThreadPool;
 
 /**
- * @class Parallel 
+ * @class Parallel
  * @brief Abstract "worker" class for multithreaded algorithms.
  *
  * This class is used to speed up the execution of a program, by parallelizing
@@ -224,7 +224,7 @@ class ThreadPool;
  * algorithm in the entry() method of a derivate of the Parallel class and
  * (using a ThreadPool) and call ThreadPool::run() method to run the entry()
  * methods on the specified number of processors.
- * 
+ *
 */
 class Parallel {
 	/// The ThreadPool which perform the call to entry(). Set by
@@ -235,7 +235,7 @@ public:
 	 * Main thread working procedure
 	 * @param thread_index  - the number of the worker, 0..threads_count-1;
 	 * @param threads_count - the total count of workers.
-	*/ 
+	*/
 	virtual void entry(int thread_index, int threads_count) = 0;
 	virtual ~Parallel() {}
 };
@@ -267,13 +267,13 @@ struct ThreadInfoStruct {
  * The ThreadPool class is intended to be used with @class Parallel derivatives.
  * It also contains and controls a pool of threads, so that new threads are
  * created only when needed (as per the run() method) and keeping them until
- * they are needed again. Threads are never killed automatically; you must 
+ * they are needed again. Threads are never killed automatically; you must
  * either destroy the ThreadPool or call the killall_threads() method to do
  * this.
  *
  * The simplest possible example of using the ThreadPool/Parallel pair is:
  *
- * 
+ *
  * @code
  * class MyProc : public Parallel {
  * 	void entry(int thread_index, int threads_count)
@@ -289,25 +289,30 @@ struct ThreadInfoStruct {
  * @endcode
  * In the example, get_processor_count() is used to determine the optimal
  * number of threads to spawn.
-*/ 
+*/
 class ThreadPool {
 	ThreadInfoStruct info[MAX_CPU_COUNT];
 	int active_count, m_n;
 	InterlockedInt counter;
 	Event thread_pool_event;
 	volatile bool waiting;
-	
+
 	void one_more_thread(void);
 	ThreadPool(const ThreadPool& rhs); // non-copyable class...
 	ThreadPool& operator = (const ThreadPool& rhs); // ... disallow evil constructors
 public:
 	ThreadPool();
 	~ThreadPool();
-	
+
+	int get_active_count()
+	{
+	    return active_count;
+	}
+
 	/// preload count threads, so that future invocations of run()
 	/// don't waste time in creating threads.
 	void preload_threads(int count);
-	
+
 	/**
 	 * @param what          - the algorithm to run;
 	 * @param threads_count - on how many threads to run the algorithm.
@@ -316,7 +321,7 @@ public:
 	 *
 	 * NOTE: when called with threads_count == 1, no threads are ever
 	 * created or used; the method just calls what->entry(0, 1) and returns.
-	*/ 
+	*/
 	void run(Parallel *what, int threads_count);
 
 	/**
@@ -325,8 +330,8 @@ public:
 	 *
 	 * run_async() returns after it has spawned the sufficient number
 	 * of threads and has given them assignments. Threads will usually run
-	 * even after this method returns; so the only difference from the 
-	 * run() method is that run_async() does not wait for threads to 
+	 * even after this method returns; so the only difference from the
+	 * run() method is that run_async() does not wait for threads to
 	 * complete their work before returning.
 	 *
 	 * This poses a great hazard if you use run() or run_async() after a
@@ -338,14 +343,14 @@ public:
 	 * and run as usual. I.e. the thread manager does not try being smart
 	*/
 	void run_async(Parallel *what, int threads_count);
-	
+
 	/**
 	 * waits for threads, spawned from run_async(), to come to rest
 	 * NOTE: in other words, run() is equivallent to consecutive calls
 	 * of run_async() and wait()
 	*/
 	void wait(void);
-	
+
 	/**
 	 * Stops all threads and frees the resources, allocated by them
 	 * NOTE: the destructor of ThreadPool does this, so you don't need to

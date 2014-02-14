@@ -40,6 +40,8 @@ Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]; //!< virtual framebuffer
 
 const char* defaultScene = "data/boxed.trinity";
 bool slave;
+char** slaveAddr;
+int slaveCount;
 
 bool testVisibility(const Vector& from, const Vector& to);
 
@@ -374,7 +376,7 @@ public:
 
     void entry(int threadIndex, int threadCount)
     {
-        ClientSocket cl("127.0.0.2", defaultScene);
+        ClientSocket cl(slaveAddr[threadIndex], defaultScene);
         int maxThreads = cl.getRemoteThreads();
         int startedThreads = 0;
         int i;
@@ -433,12 +435,11 @@ void renderScene(void)
     InterlockedInt counter = 0;
 	TaskRemote rem(buckets, counter);
 	static ThreadPool remotesPool;
-	remotesPool.run_async(&rem, 1);
+	remotesPool.run_async(&rem, slaveCount);
 	static ThreadPool pool;
 	TaskNoAA task1(buckets, counter);
 	pool.run(&task1, scene.settings.numThreads);
 	remotesPool.wait();
-
 
 	if (scene.settings.wantAA && !scene.camera->dof && !scene.settings.gi) {
 		// second pass: find pixels, that need anti-aliasing, by analyzing their neighbours
@@ -518,17 +519,37 @@ void handleMouse(SDL_MouseButtonEvent *mev)
 static bool parseCmdLine(int argc, char** argv)
 {
     slave = false;
+    slaveAddr = NULL;
+    slaveCount = 0;
+
+    // just trinity
 	if (argc < 2) return true;
-	if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
-		printf("Usage: retrace [scenefile] | --slave\n");
-		return false;
-	}
+	// trinity -h | --help
+    if(!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help"))
+    {
+        printf("Usage: trinity [scenefile] [--remotes host1 host2...] | --slave\n");
+        return false;
+    }
+    // trinity -s | --slave
 	if(!strcmp(argv[1], "-s") || !strcmp(argv[1], "--slave"))
     {
         slave = true;
         return true;
     }
+    // trinity [-r | --remotes] host1 host2...
+    if(!strcmp(argv[1], "-r") || !strcmp(argv[1], "--remotes"))
+    {
+        slaveAddr = &argv[2];
+        slaveCount = argc - 2;
+        return true;
+    }
 	defaultScene = argv[1];
+	// trinity [scenefile] [-r | --remotes] host1 host2...
+	if(!strcmp(argv[2], "-r") || !strcmp(argv[2], "--remotes"))
+    {
+        slaveAddr = &argv[3];
+        slaveCount = argc - 3;
+    }
 	return true;
 }
 
@@ -696,7 +717,6 @@ int runSlave()
                 inLock.enter();
                 in.push(bucket);
                 inLock.leave();
-                cout<<"added bucket\n";
             }
         }
         SDL_Delay(100);
