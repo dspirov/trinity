@@ -20,6 +20,7 @@
 
 #include <SDL/SDL.h>
 #include <vector>
+#include <queue>
 #include <iostream>
 #include "sdl.h"
 #include "matrix.h"
@@ -433,10 +434,11 @@ void renderScene(void)
     InterlockedInt counter = 0;
 	TaskRemote rem(buckets, counter);
 	static ThreadPool remotesPool;
-	remotesPool.run(&rem, 1);
+	remotesPool.run_async(&rem, 1);
 	static ThreadPool pool;
 	TaskNoAA task1(buckets, counter);
 	pool.run(&task1, scene.settings.numThreads);
+	remotesPool.wait();
 
 
 	if (scene.settings.wantAA && !scene.camera->dof && !scene.settings.gi) {
@@ -620,9 +622,55 @@ void mainloop(void)
 		   (unsigned) ticks, framesRendered * 1000.0f / ticks);
 }
 
+class SlaveThread : public Parallel {
+    queue<Rect> &in;
+    ServerSocket &srv;
+    Mutex &inLock;
+    Mutex &outLock;
+public:
+    SlaveThread(queue<Rect> &in, ServerSocket &srv, Mutex &inLock, Mutex &outLock)
+        : in(in), srv(srv), inLock(inLock), outLock(outLock)
+    { }
+
+    void entry(int threadIndex, int threadCount )
+    {
+        while(true)
+        {
+            while(in.empty())
+                SDL_Delay(100);
+            inLock.enter();
+            Rect bucket = in.front();
+            in.pop();
+            inLock.leave();
+
+            for(int x = bucket.x0 ; x < bucket.x1 ; x++)
+            {
+                for(int y = bucket.y0 ; y < bucket.y1 ; y++)
+                {
+                    renderPixelNoAA(x, y);
+                }
+            }
+
+            outLock.enter();
+            if(!srv.returnBucket(bucket, vfb))
+            {
+                cerr<<"Failed to return bucket: "<<SDLNet_GetError()<<endl;
+                outLock.leave();
+                break;
+            }
+            outLock.leave();
+        }
+    }
+};
+
 int runSlave()
 {
+    static ThreadPool slavePool;
     ServerSocket srv;
+    Mutex inLock, outLock;
+    queue<Rect> in;
+    SlaveThread task(in, srv, inLock, outLock);
+    slavePool.run_async(&task, get_processor_count());
     while(true)
     {
         if(srv.acceptConnection())
@@ -631,11 +679,12 @@ int runSlave()
                 printf("Could not parse the scene!\n");
                 return -1;
             }
-            if (scene.settings.numThreads == 0)
+            //if (scene.settings.numThreads == 0)
                 scene.settings.numThreads = get_processor_count();
             scene.beginRender();
             scene.beginFrame();
-            while(true)///TODO: check connection
+
+            while(true)
             {
                 Rect bucket = srv.waitForBucket();
                 if(bucket.w == 0)
@@ -644,19 +693,10 @@ int runSlave()
                     break;
                 }
                 printf("Received bucket request! %d %d %d %d\n", bucket.x0, bucket.x1, bucket.y0, bucket.y1);
-                ///TODO: thread pool
-                for(int x = bucket.x0 ; x < bucket.x1 ; x++)
-                {
-                    for(int y = bucket.y0 ; y < bucket.y1 ; y++)
-                    {
-                        renderPixelNoAA(x, y);
-                    }
-                }
-                if(!srv.returnBucket(bucket, vfb))
-                {
-                    cerr<<"Failed to return bucket: "<<SDLNet_GetError()<<endl;
-                    break;
-                }
+                inLock.enter();
+                in.push(bucket);
+                inLock.leave();
+                cout<<"added bucket\n";
             }
         }
         SDL_Delay(100);
@@ -669,6 +709,7 @@ int main(int argc, char** argv)
 	if (!parseCmdLine(argc, argv)) return 0;
 	initRandom((Uint32) time(NULL));
 	initColor();
+	SDL_Init(0);
     SDLNet_Init();
 
 	if(slave)

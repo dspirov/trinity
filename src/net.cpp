@@ -130,7 +130,7 @@ bool ServerSocket::acceptConnection()
     if(SDLNet_TCP_Recv(sock, this->sceneFile, NET_MAX_FILENAME) <= 0)
         cerr<<SDLNet_GetError();
     Sint32 numThreads = 0;
-    SDLNet_Write32(1 /*get_processor_count()*/, &numThreads);
+    SDLNet_Write32(get_processor_count(), &numThreads);
     if(SDLNet_TCP_Send(sock, &numThreads, 4) < 4)
         cerr<<SDLNet_GetError();
     return true;
