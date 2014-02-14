@@ -319,12 +319,68 @@ Color renderPixelAA(int x, int y)
 	return vfb[y][x];
 }
 
-class TaskNoAA: public Parallel
+void renderBucket(const Rect &r)
+{
+    Rect r2 = r;
+    bool AA = scene.settings.wantAA && !scene.camera->dof && !scene.settings.gi;
+    if(AA) // render a slightly bigger region to make AA detection work right
+    {
+        if(r.x1 < scene.settings.frameWidth && vfb[r.y0 + 1][r.x1 + 1].intensity() == 0)
+            r2.x1++;
+        if(r.x0 > 0 && vfb[r.y0 + 1][r.x0 - 1].intensity() == 0)
+            r2.x0--;
+        if(r.y1 < scene.settings.frameHeight && vfb[r.y1 + 1][r.x0 + 1].intensity() == 0)
+            r2.y1++;
+        if(r.y0 > 0 && vfb[r.y0 - 1][r.x0 + 1].intensity() == 0)
+            r2.y0--;
+    }
+    for (int y = r2.y0; y < r2.y1; y++)
+        for (int x = r2.x0; x < r2.x1; x++)
+            renderPixelNoAA(x, y);
+
+    if (AA) {
+        // second pass: find pixels, that need anti-aliasing, by analyzing their neighbours
+        for (int y = r.y0; y < r.y1; y++) {
+            for (int x = r.x0; x < r.x1; x++) {
+                Color neighs[5];
+                neighs[0] = vfb[y][x];
+
+                neighs[1] = vfb[y][x     > 0 ? x - 1 : x];
+                neighs[2] = vfb[y][x + 1 < scene.settings.frameWidth ? x + 1 : x];
+
+                neighs[3] = vfb[y     > 0 ? y - 1 : y][x];
+                neighs[4] = vfb[y + 1 < scene.settings.frameHeight ? y + 1 : y][x];
+
+                Color average(0, 0, 0);
+
+                for (int i = 0; i < 5; i++)
+                    average += neighs[i];
+                average /= 5.0f;
+
+                for (int i = 0; i < 5; i++) {
+                    if (tooDifferent(neighs[i], average)) {
+                        needsAA[y][x] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        for (int y = r.y0; y < r.y1; y++) {
+            for (int x = r.x0; x < r.x1; x++) {
+                if(needsAA[y][x])
+                    renderPixelAA(x, y);
+                    //vfb[y][x] = Color(1,0,0);
+            }
+        }
+    }
+}
+
+class TaskLocal: public Parallel
 {
 	const vector<Rect>& buckets;
 	InterlockedInt& counter;
 public:
-	TaskNoAA(const vector<Rect>& buckets, InterlockedInt& counter): buckets(buckets), counter(counter)
+	TaskLocal(const vector<Rect>& buckets, InterlockedInt& counter): buckets(buckets), counter(counter)
 	{
 	}
 
@@ -334,36 +390,12 @@ public:
 		int i;
 		while ((i = counter++) < (int) buckets.size()) {
 			const Rect& r = buckets[i];
-			for (int y = r.y0; y < r.y1; y++)
-				for (int x = r.x0; x < r.x1; x++)
-					renderPixelNoAA(x, y);
+			renderBucket(r);
 			if (!scene.settings.interactive)
 				if (!displayVFBRect(r, vfb))
 					return;
 		}
 
-	}
-};
-
-class TaskAA: public Parallel {
-	const vector<Rect>& buckets;
-    InterlockedInt& counter;
-public:
-	TaskAA(const vector<Rect>& buckets, InterlockedInt& counter): buckets(buckets), counter(counter)
-	{ }
-
-	void entry(int threadIndex, int threadCount ) {
-		int i;
-		while ((i = counter++) < (int) buckets.size()) {
-			const Rect& r = buckets[i];
-			if (!markRegion(r))
-				return;
-			for (int y = r.y0; y < r.y1; y++)
-				for (int x = r.x0; x < r.x1; x++)
-					if (needsAA[y][x]) renderPixelAA(x, y);
-			if (!displayVFBRect(r, vfb))
-				return;
-		}
 	}
 };
 
@@ -411,9 +443,6 @@ public:
 
 void renderScene(void)
 {
-	int W = frameWidth();
-	int H = frameHeight();
-
 	std::vector<Rect> buckets = getBucketsList();
 	if (scene.settings.wantPrepass || scene.settings.gi) {
 		// We render the whole screen in three passes.
@@ -437,61 +466,9 @@ void renderScene(void)
 	static ThreadPool remotesPool;
 	remotesPool.run_async(&rem, slaveCount);
 	static ThreadPool pool;
-	TaskNoAA task1(buckets, counter);
+	TaskLocal task1(buckets, counter);
 	pool.run(&task1, scene.settings.numThreads);
 	remotesPool.wait();
-
-	if (scene.settings.wantAA && !scene.camera->dof && !scene.settings.gi) {
-		// second pass: find pixels, that need anti-aliasing, by analyzing their neighbours
-		for (int y = 0; y < H; y++) {
-			for (int x = 0; x < W; x++) {
-				Color neighs[5];
-				neighs[0] = vfb[y][x];
-
-				neighs[1] = vfb[y][x     > 0 ? x - 1 : x];
-				neighs[2] = vfb[y][x + 1 < W ? x + 1 : x];
-
-				neighs[3] = vfb[y     > 0 ? y - 1 : y][x];
-				neighs[4] = vfb[y + 1 < H ? y + 1 : y][x];
-
-				Color average(0, 0, 0);
-
-				for (int i = 0; i < 5; i++)
-					average += neighs[i];
-				average /= 5.0f;
-
-				for (int i = 0; i < 5; i++) {
-					if (tooDifferent(neighs[i], average)) {
-						needsAA[y][x] = true;
-						break;
-					}
-				}
-			}
-		}
-	}
-
-	bool previewAA = false; // change to true to make it just display which pixels are selected for anti-aliasing
-
-	if (previewAA) {
-		for (int y = 0; y < H; y++)
-			for (int x = 0; x < W; x++)
-				if (needsAA[y][x])
-					vfb[y][x] = Color(1, 0, 0);
-	} else {
-		/*
-		 * A third pass, shooting additional rays for pixels that need them.
-		 * Note that all pixels already are sampled with a ray at offset (0, 0),
-		 * which coincides with sample #0 of our antialiasing kernel. So, instead
-		 * of shooting five rays (the kernel size), we can just shoot the remaining
-		 * four rays, adding with what we currently have in the pixel, and average
-		 * after that.
-		 */
-		if (scene.settings.wantAA && !scene.camera->dof) {
-            counter = 0;
-			TaskAA task2(buckets, counter);
-			pool.run(&task2, scene.settings.numThreads);
-		}
-	}
 }
 
 int renderSceneThread(void* /*unused*/)
@@ -663,13 +640,7 @@ public:
             in.pop();
             inLock.leave();
 
-            for(int x = bucket.x0 ; x < bucket.x1 ; x++)
-            {
-                for(int y = bucket.y0 ; y < bucket.y1 ; y++)
-                {
-                    renderPixelNoAA(x, y);
-                }
-            }
+            renderBucket(bucket);
 
             outLock.enter();
             if(!srv.returnBucket(bucket, vfb))
@@ -700,8 +671,7 @@ int runSlave()
                 printf("Could not parse the scene!\n");
                 return -1;
             }
-            //if (scene.settings.numThreads == 0)
-                scene.settings.numThreads = get_processor_count();
+            scene.settings.numThreads = get_processor_count();
             scene.beginRender();
             scene.beginFrame();
 
