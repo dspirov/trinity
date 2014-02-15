@@ -522,7 +522,7 @@ static bool parseCmdLine(int argc, char** argv)
     }
 	defaultScene = argv[1];
 	// trinity [scenefile] [-r | --remotes] host1 host2...
-	if(!strcmp(argv[2], "-r") || !strcmp(argv[2], "--remotes"))
+	if(argc > 3 && (!strcmp(argv[2], "-r") || !strcmp(argv[2], "--remotes")))
     {
         slaveAddr = &argv[3];
         slaveCount = argc - 3;
