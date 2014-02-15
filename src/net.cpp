@@ -180,9 +180,9 @@ bool ServerSocket::returnBucket(Rect bucket, const Color vfb[VFB_MAX_SIZE][VFB_M
             p+= 12;
         }
     }
-    int status = SDLNet_TCP_Send(sock, buffer, bucket.w * bucket.h * sizeof(Color));
+    int status = SDLNet_TCP_Send(sock, buffer, bucket.w * bucket.h * 12);
     delete[] buffer;
-    if(status == (int)(bucket.w * bucket.h * sizeof(Color)))
+    if(status == (int)(bucket.w * bucket.h * 12))
         return true;
     cerr<<status;
     return false;
