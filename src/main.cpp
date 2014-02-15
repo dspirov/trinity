@@ -468,7 +468,6 @@ void renderScene(void)
 	static ThreadPool pool;
 	TaskLocal task1(buckets, counter);
 	pool.run(&task1, scene.settings.numThreads);
-	remotesPool.wait();
 }
 
 int renderSceneThread(void* /*unused*/)
