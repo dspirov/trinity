@@ -664,14 +664,16 @@ int runSlave()
     queue<Rect> in;
     SlaveThread task(in, srv, inLock, outLock);
     slavePool.run_async(&task, get_processor_count());
+    printf("Waiting for connection...\n\n");
     while(true)
     {
         if(srv.acceptConnection())
         {
             scene.reset();
+            printf("Loading scene %s\n", srv.getSceneFile());
             if (!scene.parseScene(srv.getSceneFile())) {
-                printf("Could not parse the scene!\n");
-                return -1;
+                printf("Could not parse the scene!\n\n");
+                continue;
             }
             scene.settings.numThreads = get_processor_count();
             scene.beginRender();
@@ -682,10 +684,10 @@ int runSlave()
                 Rect bucket = srv.waitForBucket();
                 if(bucket.w == 0)
                 {
-                    cout<<"Connection probably lost"<<endl;
+                    printf("Resetting connection...\n\n");
                     break;
                 }
-                printf("Received bucket request! %d %d %d %d\n", bucket.x0, bucket.x1, bucket.y0, bucket.y1);
+                printf("\tBucket requested: %d %d %d %d\n", bucket.x0, bucket.x1, bucket.y0, bucket.y1);
                 inLock.enter();
                 in.push(bucket);
                 inLock.leave();
