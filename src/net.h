@@ -36,6 +36,7 @@ public:
 
     Rect waitForBucket();
     bool returnBucket(Rect bucket, const Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]);
+    void close();
 };
 
 #endif // NET_H

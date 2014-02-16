@@ -648,8 +648,6 @@ public:
             if(!srv.returnBucket(bucket, vfb))
             {
                 cerr<<"Failed to return bucket: "<<SDLNet_GetError()<<endl;
-                outLock.leave();
-                break;
             }
             outLock.leave();
         }
@@ -673,6 +671,7 @@ int runSlave()
             printf("Loading scene %s\n", srv.getSceneFile());
             if (!scene.parseScene(srv.getSceneFile())) {
                 printf("Could not parse the scene!\n\n");
+                srv.close();
                 continue;
             }
             scene.settings.numThreads = get_processor_count();
@@ -693,6 +692,7 @@ int runSlave()
                 inLock.leave();
             }
         }
+        srv.close();
         SDL_Delay(100);
     }
     return 0;

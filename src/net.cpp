@@ -54,6 +54,8 @@ int ClientSocket::getRemoteThreads() const
 bool sendRect(Rect r, TCPsocket sock)
 {
     Sint32 data[4];
+    if(!sock)
+        return false;
     SDLNet_Write32(r.x0, &data[0]);
     SDLNet_Write32(r.y0, &data[1]);
     SDLNet_Write32(r.x1, &data[2]);
@@ -74,6 +76,8 @@ bool ClientSocket::requestBucket(Rect bucket)
 Rect receiveRect(TCPsocket& sock)
 {
     Sint32 data[4];
+    if(!sock)
+        return Rect(0,0,0,0);
     if(SDLNet_TCP_Recv(sock, data, 16) < 16)
     {
         //cerr<<"Failed to read Rect: "<<SDLNet_GetError()<<endl;
@@ -189,4 +193,11 @@ bool ServerSocket::returnBucket(Rect bucket, const Color vfb[VFB_MAX_SIZE][VFB_M
         return true;
     cerr<<status<<SDLNet_GetError()<<endl;
     return false;
+}
+
+void ServerSocket::close()
+{
+    if(sock)
+        SDLNet_TCP_Close(sock);
+    sock = NULL;
 }
