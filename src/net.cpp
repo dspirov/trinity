@@ -103,7 +103,7 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
     while(totalRead < (int)(bucket.w * bucket.h * 12))
     {
         status = SDLNet_TCP_Recv(sock, pRead, bucket.w * bucket.h * 12 - totalRead);
-        printf("Received %i bytes\n", status);
+        //printf("Received %i bytes\n", status);
         if(status <= 0)
         {
             cout<<"Failed to receive bucket: "<<status<<SDLNet_GetError()<<endl;
@@ -112,7 +112,6 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
         totalRead += status;
         pRead += status;
     }
-    cout<<"Finished receiving"<<endl;
     for(int y = 0 ; y < bucket.h ; y++)
     {
         for(int x = 0 ; x < bucket.w ; x++)
@@ -120,11 +119,8 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
             readFromBuffer(&result[(bucket.w * y + x)*12], vfb[bucket.y0 + y][bucket.x0 + x]);
         }
     }
-    cout<<"Read from buffer"<<endl;
     delete[] result;
-    cout<<"Deleted buffer"<<endl;
     displayVFBRect(bucket, vfb);
-    cout<<"Displayed rect"<<endl;
     return true;
 }
 

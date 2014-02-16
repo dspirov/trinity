@@ -395,7 +395,6 @@ public:
 				if (!displayVFBRect(r, vfb))
 					return;
 		}
-        //printf("local thread %i returning\n", thread_index);
 	}
 };
 
@@ -419,7 +418,7 @@ public:
         // request a bucket from each remote thread
         while(startedThreads < maxThreads && (i = counter++) < (int) buckets.size())
         {
-            printf("requesting bucket at %d,%d \n", buckets[i].x0, buckets[i].y0);
+            printf("requesting bucket %d,%d from %s \n", buckets[i].x0, buckets[i].y0, slaveAddr[threadIndex]);
             if(!cl.requestBucket(buckets[i]))
                 break;
             startedThreads++;
@@ -429,15 +428,15 @@ public:
         {
             if(!cl.receiveBucket(vfb))
                 break;
-            else printf("Received bucket\n");
+            //else printf("Received bucket\n");
             if((i = counter++) < (int) buckets.size())
             {
-                printf("requesting bucket at %d,%d \n", buckets[i].x0, buckets[i].y0);
-                cl.requestBucket(buckets[i]);
+                printf("requesting bucket %d,%d from %s \n", buckets[i].x0, buckets[i].y0, slaveAddr[threadIndex]);
+                if(!cl.requestBucket(buckets[i]))
+                    break;
             }
             else startedThreads--;
         }
-        //printf("remote %s returning\n", slaveAddr[threadIndex]);
     }
 };
 
