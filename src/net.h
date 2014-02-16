@@ -18,7 +18,7 @@ public:
 
     int getRemoteThreads() const;
     bool requestBucket(Rect bucket);
-    bool receiveBucket(Color vfb[][VFB_MAX_SIZE]);
+    bool receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]);
 };
 
 class ServerSocket {
@@ -35,7 +35,7 @@ public:
     const char* getSceneFile() const;
 
     Rect waitForBucket();
-    bool returnBucket(Rect bucket, const Color vfb[][VFB_MAX_SIZE]);
+    bool returnBucket(Rect bucket, const Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]);
 };
 
 #endif // NET_H

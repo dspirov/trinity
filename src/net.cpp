@@ -15,11 +15,11 @@ inline void writeToBuffer(const Color &col, char* buff)
     }
 }
 
-inline void readFromBuffer(const char* buff, Color& col)
+inline void readFromBuffer(char* buff, Color& col)
 {
     for(int i = 0 ; i < 3 ; i++)
     {
-        Sint32 c = SDLNet_Read32(&buff[i * 4]);
+        Sint32 c = SDLNet_Read32(buff + 4*i);
         col.components[i] = (float)c / 10000;
     }
 }
@@ -74,7 +74,7 @@ bool ClientSocket::requestBucket(Rect bucket)
 Rect receiveRect(TCPsocket& sock)
 {
     Sint32 data[4];
-    if(SDLNet_TCP_Recv(sock, data, 16) <= 0)
+    if(SDLNet_TCP_Recv(sock, data, 16) < 16)
     {
         cerr<<"Failed to read Rect: "<<SDLNet_GetError()<<endl;
         return Rect(0,0,0,0);
@@ -99,18 +99,20 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
     // receive the pixels
     char *result = new char[bucket.w * bucket.h * 12];
     char *pRead = (char*)result;
-    int status, totalRead = 0;
+    int status = 0, totalRead = 0;
     while(totalRead < (int)(bucket.w * bucket.h * 12))
     {
         status = SDLNet_TCP_Recv(sock, pRead, bucket.w * bucket.h * 12 - totalRead);
+        printf("Received %i bytes\n", status);
         if(status <= 0)
         {
             cout<<"Failed to receive bucket: "<<status<<SDLNet_GetError()<<endl;
             return false;
         }
         totalRead += status;
-        pRead += totalRead;
+        pRead += status;
     }
+    cout<<"Finished receiving"<<endl;
     for(int y = 0 ; y < bucket.h ; y++)
     {
         for(int x = 0 ; x < bucket.w ; x++)
@@ -118,9 +120,11 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
             readFromBuffer(&result[(bucket.w * y + x)*12], vfb[bucket.y0 + y][bucket.x0 + x]);
         }
     }
-
-    displayVFBRect(bucket, vfb);
+    cout<<"Read from buffer"<<endl;
     delete[] result;
+    cout<<"Deleted buffer"<<endl;
+    displayVFBRect(bucket, vfb);
+    cout<<"Displayed rect"<<endl;
     return true;
 }
 
@@ -147,7 +151,7 @@ bool ServerSocket::acceptConnection()
     sock = SDLNet_TCP_Accept(srvSock);
     if(!sock)
         return false;
-    if(SDLNet_TCP_Recv(sock, this->sceneFile, NET_MAX_FILENAME) <= 0)
+    if(SDLNet_TCP_Recv(sock, this->sceneFile, NET_MAX_FILENAME) <= NET_MAX_FILENAME)
         cerr<<SDLNet_GetError();
     Sint32 numThreads = 0;
     SDLNet_Write32(get_processor_count(), &numThreads);

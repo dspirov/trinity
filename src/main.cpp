@@ -395,7 +395,7 @@ public:
 				if (!displayVFBRect(r, vfb))
 					return;
 		}
-
+        //printf("local thread %i returning\n", thread_index);
 	}
 };
 
@@ -437,6 +437,7 @@ public:
             }
             else startedThreads--;
         }
+        //printf("remote %s returning\n", slaveAddr[threadIndex]);
     }
 };
 
@@ -464,10 +465,13 @@ void renderScene(void)
     InterlockedInt counter = 0;
 	TaskRemote rem(buckets, counter);
 	static ThreadPool remotesPool;
-	remotesPool.run_async(&rem, slaveCount);
+	if(slaveCount > 0)
+        remotesPool.run_async(&rem, slaveCount);
 	static ThreadPool pool;
 	TaskLocal task1(buckets, counter);
 	pool.run(&task1, scene.settings.numThreads);
+	if(slaveCount > 0)
+        remotesPool.wait();
 }
 
 int renderSceneThread(void* /*unused*/)
