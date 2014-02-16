@@ -76,7 +76,7 @@ Rect receiveRect(TCPsocket& sock)
     Sint32 data[4];
     if(SDLNet_TCP_Recv(sock, data, 16) < 16)
     {
-        cerr<<"Failed to read Rect: "<<SDLNet_GetError()<<endl;
+        //cerr<<"Failed to read Rect: "<<SDLNet_GetError()<<endl;
         return Rect(0,0,0,0);
     }
     Rect r(SDLNet_Read32(&data[0]),
@@ -131,7 +131,7 @@ ServerSocket::ServerSocket()
         cerr<<SDLNet_GetError()<<endl;
     srvSock = SDLNet_TCP_Open(&ip);
     if(!srvSock)
-        cerr<<SDLNet_GetError();
+        cerr<<SDLNet_GetError()<<endl;
     sock = NULL;
 }
 
@@ -147,12 +147,15 @@ bool ServerSocket::acceptConnection()
     sock = SDLNet_TCP_Accept(srvSock);
     if(!sock)
         return false;
-    if(SDLNet_TCP_Recv(sock, this->sceneFile, NET_MAX_FILENAME) <= NET_MAX_FILENAME)
-        cerr<<SDLNet_GetError();
+    if(SDLNet_TCP_Recv(sock, this->sceneFile, NET_MAX_FILENAME) < NET_MAX_FILENAME)
+    {
+        cerr<<SDLNet_GetError()<<endl;
+        return false;
+    }
     Sint32 numThreads = 0;
     SDLNet_Write32(get_processor_count(), &numThreads);
     if(SDLNet_TCP_Send(sock, &numThreads, 4) < 4)
-        cerr<<SDLNet_GetError();
+        cerr<<SDLNet_GetError()<<endl;
     return true;
 }
 
@@ -184,6 +187,6 @@ bool ServerSocket::returnBucket(Rect bucket, const Color vfb[VFB_MAX_SIZE][VFB_M
     delete[] buffer;
     if(status == (int)(bucket.w * bucket.h * 12))
         return true;
-    cerr<<status;
+    cerr<<status<<SDLNet_GetError()<<endl;
     return false;
 }
