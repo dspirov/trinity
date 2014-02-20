@@ -325,14 +325,14 @@ void renderBucket(const Rect &r)
     bool AA = scene.settings.wantAA && !scene.camera->dof && !scene.settings.gi;
     if(AA) // render a slightly bigger region to make AA detection work right
     {
-        if(r.x1 < scene.settings.frameWidth && vfb[r.y0 + 1][r.x1 + 1].intensity() == 0)
-            r2.x1++;
-        if(r.x0 > 0 && vfb[r.y0 + 1][r.x0 - 1].intensity() == 0)
-            r2.x0--;
-        if(r.y1 < scene.settings.frameHeight && vfb[r.y1 + 1][r.x0 + 1].intensity() == 0)
-            r2.y1++;
-        if(r.y0 > 0 && vfb[r.y0 - 1][r.x0 + 1].intensity() == 0)
-            r2.y0--;
+        if(r.x1 < scene.settings.frameWidth && vfb[r.y0][r.x1].intensity() == 0)
+            r2.x1++; // extend right
+        if(r.x0 > 0 && vfb[r.y0][r.x0 - 1].intensity() == 0)
+            r2.x0--; // extend left
+        if(r.y1 < scene.settings.frameHeight && vfb[r.y1][r.x0].intensity() == 0)
+            r2.y1++; // extend down
+        if(r.y0 > 0 && vfb[r.y0 - 1][r.x0].intensity() == 0)
+            r2.y0--; // extend up
     }
     for (int y = r2.y0; y < r2.y1; y++)
         for (int x = r2.x0; x < r2.x1; x++)
@@ -456,6 +456,7 @@ void renderScene(void)
 					Color c = renderPixelNoAA(r.x0 + dx, r.y0 + dy, ex - dx, ey - dy);
 					if (!drawRect(Rect(r.x0 + dx, r.y0 + dy, r.x0 + ex, r.y0 + ey), c))
 						return;
+                    vfb[r.y0 + dy][r.x0 + dx] = Color(0,0,0);
 				}
 			}
 		}
