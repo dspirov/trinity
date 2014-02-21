@@ -37,6 +37,7 @@
 using namespace std;
 
 Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]; //!< virtual framebuffer
+bool rendered[VFB_MAX_SIZE][VFB_MAX_SIZE];
 
 const char* defaultScene = "data/boxed.trinity";
 bool slave;
@@ -325,18 +326,22 @@ void renderBucket(const Rect &r)
     bool AA = scene.settings.wantAA && !scene.camera->dof && !scene.settings.gi;
     if(AA) // render a slightly bigger region to make AA detection work right
     {
-        if(r.x1 < scene.settings.frameWidth && vfb[r.y0][r.x1].intensity() == 0)
+        if(r.x1 < scene.settings.frameWidth)
             r2.x1++; // extend right
-        if(r.x0 > 0 && vfb[r.y0][r.x0 - 1].intensity() == 0)
+        if(r.x0 > 0)
             r2.x0--; // extend left
-        if(r.y1 < scene.settings.frameHeight && vfb[r.y1][r.x0].intensity() == 0)
+        if(r.y1 < scene.settings.frameHeight)
             r2.y1++; // extend down
-        if(r.y0 > 0 && vfb[r.y0 - 1][r.x0].intensity() == 0)
+        if(r.y0 > 0)
             r2.y0--; // extend up
     }
     for (int y = r2.y0; y < r2.y1; y++)
         for (int x = r2.x0; x < r2.x1; x++)
-            renderPixelNoAA(x, y);
+            if(!rendered[y][x])
+            {
+                renderPixelNoAA(x, y);
+                rendered[y][x] = true;
+            }
 
     if (AA) {
         // second pass: find pixels, that need anti-aliasing, by analyzing their neighbours
@@ -444,6 +449,7 @@ public:
 void renderScene(void)
 {
 	std::vector<Rect> buckets = getBucketsList();
+    memset(rendered, 0, VFB_MAX_SIZE * VFB_MAX_SIZE);
 	if (scene.settings.wantPrepass || scene.settings.gi) {
 		// We render the whole screen in three passes.
 		// 1) First pass - use very coarse resolution rendering, tracing a single ray for a 16x16 block:
@@ -456,7 +462,6 @@ void renderScene(void)
 					Color c = renderPixelNoAA(r.x0 + dx, r.y0 + dy, ex - dx, ey - dy);
 					if (!drawRect(Rect(r.x0 + dx, r.y0 + dy, r.x0 + ex, r.y0 + ey), c))
 						return;
-                    vfb[r.y0 + dy][r.x0 + dx] = Color(0,0,0);
 				}
 			}
 		}
@@ -669,6 +674,7 @@ int runSlave()
         if(srv.acceptConnection())
         {
             scene.reset();
+            memset(rendered, 0, VFB_MAX_SIZE * VFB_MAX_SIZE);
             printf("Loading scene %s\n", srv.getSceneFile());
             if (!scene.parseScene(srv.getSceneFile())) {
                 printf("Could not parse the scene!\n\n");
