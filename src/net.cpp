@@ -95,7 +95,7 @@ Rect receiveRect(TCPsocket& sock)
     return r;
 }
 
-bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
+bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE], bool rendered[VFB_MAX_SIZE][VFB_MAX_SIZE], Rect& r)
 {
     Rect bucket = receiveRect(sock);
     if(bucket.w == 0)
@@ -121,6 +121,7 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE])
         for(int x = 0 ; x < bucket.w ; x++)
         {
             readFromBuffer(&result[(bucket.w * y + x)*12], vfb[bucket.y0 + y][bucket.x0 + x]);
+            rendered[y][x] = true;
         }
     }
     delete[] result;

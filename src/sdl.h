@@ -33,7 +33,7 @@ void displayVFB(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]); //!< displays the VFB (V
 void waitForUserExit(void); //!< Pause. Wait until the user closes the application
 int frameWidth(void); //!< returns the frame width (pixels)
 int frameHeight(void); //!< returns the frame height (pixels)
-/// sets the caption of the display window. If renderTime >= 0, the 
+/// sets the caption of the display window. If renderTime >= 0, the
 /// msg is interpreted as a format string, and must contain '%f'
 void setWindowCaption(const char* msg, float renderTime = -1.0f);
 
@@ -47,6 +47,10 @@ struct Rect {
 		w = x1 - x0;
 	}
 	void clip(int maxX, int maxY); // clips the rectangle against image size
+	bool operator==(const Rect& p)
+	{
+	    return x0 == p.x0 && x1 == p.x1 && y0 == p.y0 && y1 == p.y1;
+	}
 };
 
 // generate a list of buckets (image sub-rectangles) to be rendered, in a zigzag pattern
@@ -71,7 +75,7 @@ bool takeScreenshot(const char* filename);
 
 /// Takes a screen shot; converts the VFB to RGB32 and writes it to a file on disk, in the current
 /// directory. The file name is auto-generated; it searches for the first free file name like "trinity_0001.bmp"
-/// (or .exr),  uses that and writes it there. The given format determines whether it is written as 
+/// (or .exr),  uses that and writes it there. The given format determines whether it is written as
 /// BMP or EXR
 bool takeScreenshotAuto(Bitmap::OutputFormat format);
 

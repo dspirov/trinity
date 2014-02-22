@@ -18,7 +18,7 @@ public:
 
     int getRemoteThreads() const;
     bool requestBucket(Rect bucket);
-    bool receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE]);
+    bool receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE], bool rendered[VFB_MAX_SIZE][VFB_MAX_SIZE], Rect& r);
 };
 
 class ServerSocket {

@@ -21,6 +21,7 @@
 #include <SDL/SDL.h>
 #include <vector>
 #include <queue>
+#include <list>
 #include <iostream>
 #include "sdl.h"
 #include "matrix.h"
@@ -404,7 +405,7 @@ public:
 };
 
 class TaskRemote : public Parallel {
-	const vector<Rect>& buckets;
+	vector<Rect>& buckets;
     InterlockedInt& counter;
 public:
     TaskRemote(vector<Rect>& buckets, InterlockedInt& counter): buckets(buckets), counter(counter)
@@ -413,6 +414,7 @@ public:
     void entry(int threadIndex, int threadCount)
     {
         ClientSocket cl(slaveAddr[threadIndex], defaultScene);
+        list<Rect> renderingBuckets;
         int maxThreads = cl.getRemoteThreads();
         int startedThreads = 0;
         int i;
@@ -426,21 +428,37 @@ public:
             printf("requesting bucket %d,%d from %s \n", buckets[i].x0, buckets[i].y0, slaveAddr[threadIndex]);
             if(!cl.requestBucket(buckets[i]))
                 break;
+            renderingBuckets.push_back(buckets[i]);
             startedThreads++;
         }
 
         while(startedThreads > 0)
         {
-            if(!cl.receiveBucket(vfb))
+            Rect bucket;
+            if(!cl.receiveBucket(vfb, rendered, bucket))
                 break;
             //else printf("Received bucket\n");
+            for(list<Rect>::iterator it = renderingBuckets.begin() ; it != renderingBuckets.end() ; ++it)
+            {
+                if(bucket == *it)
+                {
+                    renderingBuckets.erase(it);
+                    break;
+                }
+            }
             if((i = counter++) < (int) buckets.size())
             {
                 printf("requesting bucket %d,%d from %s \n", buckets[i].x0, buckets[i].y0, slaveAddr[threadIndex]);
                 if(!cl.requestBucket(buckets[i]))
                     break;
+                renderingBuckets.push_back(buckets[i]);
             }
             else startedThreads--;
+        }
+
+        for(list<Rect>::iterator it = renderingBuckets.begin() ; it != renderingBuckets.end() ; ++it)
+        {
+            buckets.push_back(*it);
         }
     }
 };
@@ -662,6 +680,7 @@ public:
 
 int runSlave()
 {
+    char current_filename[NET_MAX_FILENAME];
     static ThreadPool slavePool;
     ServerSocket srv;
     Mutex inLock, outLock;
@@ -673,14 +692,19 @@ int runSlave()
     {
         if(srv.acceptConnection())
         {
-            scene.reset();
-            memset(rendered, 0, VFB_MAX_SIZE * VFB_MAX_SIZE);
-            printf("Loading scene %s\n", srv.getSceneFile());
-            if (!scene.parseScene(srv.getSceneFile())) {
-                printf("Could not parse the scene!\n\n");
-                srv.close();
-                continue;
+            if(strcmp(current_filename, srv.getSceneFile()) != 0)
+            {
+                strcpy(current_filename, srv.getSceneFile());
+                scene.reset();
+                printf("Loading scene %s\n", srv.getSceneFile());
+                if (!scene.parseScene(srv.getSceneFile())) {
+                    printf("Could not parse the scene!\n\n");
+                    srv.close();
+                    continue;
+                }
             }
+            else printf("Reusing scene %s\n", current_filename);
+            memset(rendered, 0, VFB_MAX_SIZE * VFB_MAX_SIZE);
             scene.settings.numThreads = get_processor_count();
             scene.beginRender();
             scene.beginFrame();
