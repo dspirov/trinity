@@ -438,14 +438,7 @@ public:
             if(!cl.receiveBucket(vfb, rendered, bucket))
                 break;
             //else printf("Received bucket\n");
-            for(list<Rect>::iterator it = renderingBuckets.begin() ; it != renderingBuckets.end() ; ++it)
-            {
-                if(bucket == *it)
-                {
-                    renderingBuckets.erase(it);
-                    break;
-                }
-            }
+            renderingBuckets.remove(bucket);
             if((i = counter++) < (int) buckets.size())
             {
                 printf("requesting bucket %d,%d from %s \n", buckets[i].x0, buckets[i].y0, slaveAddr[threadIndex]);
@@ -458,6 +451,7 @@ public:
 
         for(list<Rect>::iterator it = renderingBuckets.begin() ; it != renderingBuckets.end() ; ++it)
         {
+            printf("Re-queueing bucket %d,%d\n", (*it).x0, (*it).y0);
             buckets.push_back(*it);
         }
     }

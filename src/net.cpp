@@ -97,16 +97,16 @@ Rect receiveRect(TCPsocket& sock)
 
 bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE], bool rendered[VFB_MAX_SIZE][VFB_MAX_SIZE], Rect& r)
 {
-    Rect bucket = receiveRect(sock);
-    if(bucket.w == 0)
+    r = receiveRect(sock);
+    if(r.w == 0)
         return false;
     // receive the pixels
-    char *result = new char[bucket.w * bucket.h * 12];
+    char *result = new char[r.w * r.h * 12];
     char *pRead = (char*)result;
     int status = 0, totalRead = 0;
-    while(totalRead < (int)(bucket.w * bucket.h * 12))
+    while(totalRead < (int)(r.w * r.h * 12))
     {
-        status = SDLNet_TCP_Recv(sock, pRead, bucket.w * bucket.h * 12 - totalRead);
+        status = SDLNet_TCP_Recv(sock, pRead, r.w * r.h * 12 - totalRead);
         //printf("Received %i bytes\n", status);
         if(status <= 0)
         {
@@ -116,16 +116,16 @@ bool ClientSocket::receiveBucket(Color vfb[VFB_MAX_SIZE][VFB_MAX_SIZE], bool ren
         totalRead += status;
         pRead += status;
     }
-    for(int y = 0 ; y < bucket.h ; y++)
+    for(int y = 0 ; y < r.h ; y++)
     {
-        for(int x = 0 ; x < bucket.w ; x++)
+        for(int x = 0 ; x < r.w ; x++)
         {
-            readFromBuffer(&result[(bucket.w * y + x)*12], vfb[bucket.y0 + y][bucket.x0 + x]);
+            readFromBuffer(&result[(r.w * y + x)*12], vfb[r.y0 + y][r.x0 + x]);
             rendered[y][x] = true;
         }
     }
     delete[] result;
-    displayVFBRect(bucket, vfb);
+    displayVFBRect(r, vfb);
     return true;
 }
 
